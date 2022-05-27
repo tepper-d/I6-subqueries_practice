@@ -1,0 +1,168 @@
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+1. Write a SELECT statement that returns the same result set as this SELECT statement. Substitute a subquery in a WHERE clause for the inner join
+
+		   SELECT DISTINCT VendorName
+		   FROM Vendors JOIN Invoices
+				ON Vendors.VendorID = Invoices.VendorID
+		   ORDER BY VendorName;
+******************************************************************* Tepper */
+
+SELECT VendorName
+FROM Vendors
+WHERE VendorID IN
+		(SELECT VendorID FROM Invoices)
+ORDER BY VendorName; --34 rows
+
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+2. Write a SELECT statement that answers this question: Which invoices have a PaymentTotal that's greater than the average PaymentTotal for all paid invoices? Return the InvoiceNumber and InvoiceTotal for each invoice.
+******************************************************************* Tepper */
+
+SELECT InvoiceNumber, InvoiceTotal
+FROM Invoices
+WHERE PaymentTotal > 
+	(SELECT AVG(PaymentTotal)
+	 FROM Invoices); -- 22 rows
+
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+3. Write a SELECT statement that answers this question: Which invoices have a PaymentTotal that's greater than the median PaymentTotal for all paid invoices? Return the InvoiceNumber and InvoiceTotal for each invoice.
+******************************************************************* Tepper */
+
+SELECT InvoiceNumber, InvoiceTotal
+FROM Invoices
+WHERE PaymentTotal > ALL
+     (SELECT TOP 50 PERCENT PaymentTotal
+      FROM Invoices); -- 0 rows
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+4. Write a SELECT statement that returns two columns from the GLAccounts table
+		A. AccountNo
+		B. AccountDescription
+   The result set should have one row for each account number that has never been used. Use a correlated subquery inntroduced with the NOT EXISTS operator. Sort the final result set by AccountNo.
+******************************************************************* Tepper */
+
+SELECT AccountNo, AccountDescription
+FROM GLAccounts
+WHERE NOT EXISTS
+    (SELECT *
+     FROM InvoiceLineItems
+     WHERE InvoiceLineItems.AccountNo = GLAccounts.AccountNo)
+ORDER BY AccountNo; -- 54 rows
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+5. Write a SELECT statement that returns 4 columns for each invoice that has more than one line item in the InvoiceLineItems table:
+		a. VendorName
+		b. InvoiceID
+		c. InvoiceSequence
+		d. InvoiceLineItemAmount
+******************************************************************* Tepper */
+
+SELECT VendorName, i.InvoiceID, InvoiceSequence, InvoiceLineItemAmount
+FROM Vendors AS v 
+	JOIN Invoices AS i
+		ON v.VendorID = i.VendorID
+	JOIN InvoiceLineItems AS l
+		ON i.InvoiceID = l.InvoiceID
+WHERE i.InvoiceID IN
+      (SELECT InvoiceID
+       FROM InvoiceLineItems
+       WHERE InvoiceSequence > 1)
+ORDER BY VendorName, i.InvoiceID, InvoiceSequence;    -- 6 rows
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+6. Write a SELECT statement that returns a single value that represents the sum of the largest unpaid invoices submitted by each vendor. Use a derived table that returns MAX(InvoiceTotal) grouped by VendorID, filtering for invoices with a balance due.
+******************************************************************* Tepper */
+
+SELECT SUM(Maximum) AS [Sum of Max Invoices]
+FROM (SELECT VendorID, MAX(InvoiceTotal) AS Maximum
+      FROM Invoices
+      WHERE InvoiceTotal - CreditTotal - PaymentTotal > 0
+      GROUP BY VendorID) AS MaxInvoice; -- 1 row, 22101.39
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+7. Write a SELECT statement that returns the name, city, and state of each vendor that's located in a unique city and state.
+******************************************************************* Tepper */
+
+SELECT VendorName, VendorCity, VendorState
+FROM Vendors
+WHERE VendorState + VendorCity NOT IN 
+	(SELECT VendorState + VendorCity
+	FROM Vendors
+	GROUP BY VendorState + VendorCity
+	HAVING COUNT(*) > 1)
+ORDER BY VendorState, VendorCity; -- 38 rows
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+8. Write a SELECT statement that returns 4 columns: VendorName, InvoiceNumber, InvoiceDate, and InvoiceTotal. Return one row per vendor, representing the vendor's invoice with the earliest date.
+******************************************************************* Tepper */
+
+SELECT VendorName, 
+		InvoiceNumber AS [Earliest Invoice],
+		InvoiceDate, 
+		InvoiceTotal
+FROM Invoices AS i JOIN Vendors AS v
+		ON i.VendorID = v.VendorID
+WHERE InvoiceDate =
+  (SELECT MIN(InvoiceDate)
+   FROM Invoices AS inv
+   WHERE inv.VendorID = i.VendorID)
+ORDER BY VendorName; --34 rows
+
+
+/*****************************************************************************
+CIS 261: Structured Query Language
+Chapter 6: How to code subqueries
+Dominique Tepper, 27MAY2022
+
+9. Rewrite exercise 6 so it uses a common table expression (CTE) instead of a derived table.
+******************************************************************* Tepper */
+
+WITH MaxInvoice AS
+(
+    SELECT VendorID, MAX(InvoiceTotal) AS Maximum
+    FROM Invoices
+    WHERE InvoiceTotal - CreditTotal - PaymentTotal > 0
+    GROUP BY VendorID
+)
+SELECT SUM(Maximum) AS [Sum of Max Invoices]
+FROM MaxInvoice; -- 1 row, 22101.39
